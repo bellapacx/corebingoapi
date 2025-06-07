@@ -1,5 +1,5 @@
 import bcrypt
-from firebase_admin_setup import db
+from firebase_client import db
 from utils.token import create_access_token
 from fastapi import HTTPException
 
