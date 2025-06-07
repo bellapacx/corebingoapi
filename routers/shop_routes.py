@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel
-from firebase_admin import db
+from firebase_client import db
 from models.shop import Shop
 from utils.token import create_access_token, verify_token
 from passlib.context import CryptContext
