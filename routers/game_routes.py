@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Header
-from firebase_admin import db
+from firebase_client import db
 from utils.token import verify_token
 from models.game import StartGameRequest
 from uuid import uuid4
