@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 app = FastAPI()
 
 origins = [
-    "https://bingoapp-dun.vercel.app",
+    "https://bingoapp-mocha.vercel.app",
     "http://localhost:5175",
     "http://localhost:5173",
     "http://127.0.0.1:5173",
