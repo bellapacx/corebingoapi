@@ -7,7 +7,7 @@ app = FastAPI()
 origins = [
     "https://bingoapp-mocha.vercel.app",
     "https://bingoadmin-9wyy.vercel.app",
-    "https://www.halobingo.com/",
+    "https://www.halobingo.com",
     "http://localhost:5175",
     "http://localhost:5173",
     "http://127.0.0.1:5173",
