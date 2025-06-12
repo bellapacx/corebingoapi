@@ -16,6 +16,12 @@ class LoginRequest(BaseModel):
     username: str
     password: str
 
+class UpdateShopRequest(BaseModel):
+    username: str
+    password: str | None = None
+    balance: float
+
+
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
 
@@ -139,3 +145,37 @@ def get_shop_games(shop_id: str):
         return {"shop_id": shop_id, "games": [], "message": "No games found"}
 
     return {"shop_id": shop_id, "games": games}
+
+@router.put("/shops/{shop_id}")
+async def update_shop(shop_id: str, data: UpdateShopRequest):
+    query = db.collection("shops").where("shop_id", "==", shop_id).limit(1).get()
+    if not query:
+        raise HTTPException(status_code=404, detail="Shop not found")
+
+    doc = query[0].reference
+    update_data = {
+        "username": data.username,
+        "balance": data.balance,
+    }
+    if data.password:
+        update_data["password"] = data.password
+
+    doc.update(update_data)
+    return {"message": "Shop updated successfully"}
+
+@router.put("/shops/{shop_id}")
+async def update_shop(shop_id: str, data: UpdateShopRequest):
+    query = db.collection("shops").where("shop_id", "==", shop_id).limit(1).get()
+    if not query:
+        raise HTTPException(status_code=404, detail="Shop not found")
+
+    doc = query[0].reference
+    update_data = {
+        "username": data.username,
+        "balance": data.balance,
+    }
+    if data.password:
+        update_data["password"] = data.password
+
+    doc.update(update_data)
+    return {"message": "Shop updated successfully"}
