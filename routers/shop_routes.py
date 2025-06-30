@@ -170,7 +170,7 @@ class ShopUpdate(BaseModel):
 @router.put("/shops/{shop_id}")
 async def update_shop(shop_id: str, shop_data: ShopUpdate):
     # Query Firestore to find document with matching shop_id field
-    docs = list(db.where("shop_id", "==", shop_id).limit(1).stream())
+    docs = list(db.shops.where("shop_id", "==", shop_id).limit(1).stream())
     if not docs:
         raise HTTPException(status_code=404, detail="Shop not found")
 
