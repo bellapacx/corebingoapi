@@ -169,13 +169,18 @@ class ShopUpdate(BaseModel):
 
 @router.put("/shops/{shop_id}")
 async def update_shop(shop_id: str, shop_data: ShopUpdate):
-    shop = db.get_shop(shop_id)
-    if not shop:
+    # Query Firestore to find document with matching shop_id field
+    docs = list(db.where("shop_id", "==", shop_id).limit(1).stream())
+    if not docs:
         raise HTTPException(status_code=404, detail="Shop not found")
 
+    doc = docs[0]
     update_fields = shop_data.dict(exclude_unset=True)
-    db.update_shop(shop_id, update_fields)  # only updates provided fields
+    # Update the document by Firestore doc ID
+    db.shops.document(doc.id).update(update_fields)
+
     return {"message": "Shop updated", "updated_fields": update_fields}
+
 
 @router.delete("/shops/{shop_id}")
 async def delete_shop(shop_id: str):
