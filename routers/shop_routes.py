@@ -1,3 +1,4 @@
+from typing import Optional
 from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel
 from firebase_client import db
@@ -160,22 +161,21 @@ def get_shop_games(shop_id: str):
     }
 
 
+class ShopUpdate(BaseModel):
+    username: Optional[str]
+    password: Optional[str]
+    balance: Optional[float]
+    billing_type: Optional[str]
+
 @router.put("/shops/{shop_id}")
-async def update_shop(shop_id: str, data: UpdateShopRequest):
-    query = db.collection("shops").where("shop_id", "==", shop_id).limit(1).get()
-    if not query:
+async def update_shop(shop_id: str, shop_data: ShopUpdate):
+    shop = db.get_shop(shop_id)
+    if not shop:
         raise HTTPException(status_code=404, detail="Shop not found")
 
-    doc = query[0].reference
-    update_data = {
-        "username": data.username,
-        "balance": data.balance,
-    }
-    if data.password:
-        update_data["password"] = data.password
-
-    doc.update(update_data)
-    return {"message": "Shop updated successfully"}
+    update_fields = shop_data.dict(exclude_unset=True)
+    db.update_shop(shop_id, update_fields)  # only updates provided fields
+    return {"message": "Shop updated", "updated_fields": update_fields}
 
 @router.delete("/shops/{shop_id}")
 async def delete_shop(shop_id: str):
