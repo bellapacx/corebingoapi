@@ -1,3 +1,4 @@
+from http.client import HTTPException
 from fastapi import APIRouter, Header
 from firebase_client import db
 from utils.token import verify_token
@@ -34,7 +35,26 @@ async def start_game(data: StartGameRequest):
     num_cards = len(data.selected_cards)
     total_bet = num_cards * data.bet_per_card
     commission_amount = total_bet * data.commission_rate
+    
+    # Fetch shop document by shop_id field
+    shop_query = db.collection("shops").where("shop_id", "==", data.shop_id).limit(1).get()
+    if not shop_query:
+       raise HTTPException(status_code=404, detail="Shop not found")
 
+    shop_doc = shop_query[0]
+    shop_data = shop_doc.to_dict()
+    billing_type = shop_data.get("billing_type", "prepaid")
+    current_balance = shop_data.get("balance", 0.0)
+
+    # Prepaid logic
+    if billing_type == "prepaid":
+       if current_balance < commission_amount:
+        raise HTTPException(status_code=400, detail="Insufficient balance for prepaid shop")
+
+    new_balance = current_balance - commission_amount
+    db.collection("shops").document(shop_doc.id).update({
+        "balance": new_balance
+    })
     # Reference to weekly commission doc
     week_collection_ref = db.collection("shop_commissions").document(data.shop_id).collection("weekly_commissions")
 
