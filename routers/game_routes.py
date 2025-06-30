@@ -45,7 +45,11 @@ async def start_game(data: StartGameRequest):
     shop_data = shop_doc.to_dict()
     billing_type = shop_data.get("billing_type", "prepaid")
     current_balance = shop_data.get("balance", 0.0)
-
+    if billing_type == "postpaid":
+        # Postpaid logic: Check if the shop has enough balance
+        if current_balance == 0.0:
+            raise HTTPException(status_code=400, detail="Insufficient balance for postpaid shop")
+        
     # Prepaid logic
     if billing_type == "prepaid":
        if current_balance < commission_amount:
