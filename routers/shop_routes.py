@@ -130,6 +130,7 @@ async def mark_commission_paid(shop_id: str, week_id: str):
 @router.get("/report/{shop_id}")
 def get_shop_games(shop_id: str):
     try:
+        # Fetch games
         games_query = db.collection("game_rounds").where("shop_id", "==", shop_id)
         games_docs = games_query.stream()
 
@@ -138,13 +139,26 @@ def get_shop_games(shop_id: str):
             data = doc.to_dict()
             data["round_id"] = doc.id
             games.append(data)
+
+        # Fetch shop balance
+        shop_query = db.collection("shops").where("shop_id", "==", shop_id).limit(1).get()
+        if not shop_query:
+            raise HTTPException(status_code=404, detail="Shop not found")
+
+        shop_doc = shop_query[0]
+        shop_data = shop_doc.to_dict()
+        balance = shop_data.get("balance", 0.0)
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch games: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch report: {e}")
 
-    if not games:
-        return {"shop_id": shop_id, "games": [], "message": "No games found"}
+    return {
+        "shop_id": shop_id,
+        "balance": balance,
+        "games": games,
+        "message": "No games found" if not games else "Success"
+    }
 
-    return {"shop_id": shop_id, "games": games}
 
 @router.put("/shops/{shop_id}")
 async def update_shop(shop_id: str, data: UpdateShopRequest):
