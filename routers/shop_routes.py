@@ -162,10 +162,10 @@ def get_shop_games(shop_id: str):
 
 
 class ShopUpdate(BaseModel):
-    username: Optional[str]
-    password: Optional[str]
-    balance: Optional[float]
-    billing_type: Optional[str]
+    username: Optional[str] = None
+    password: Optional[str] = None
+    balance: Optional[float] = None
+    billing_type: Optional[str] = None
 
 @router.put("/shops/{shop_id}")
 async def update_shop(shop_id: str, shop_data: ShopUpdate):
