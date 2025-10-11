@@ -5,13 +5,20 @@ from firebase_client import db
 from models.shop import Shop
 from utils.token import create_access_token, verify_token
 from passlib.context import CryptContext
-
+from passlib.exc import UnknownHashError
 from firebase_admin import firestore  # Ensure you have firebase_admin installed
+import logging
 
 router = APIRouter()
 
+# Configure Passlib
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Pydantic models
 class LoginRequest(BaseModel):
     shopId: str
     username: str
@@ -22,12 +29,23 @@ class UpdateShopRequest(BaseModel):
     password: str | None = None
     balance: float
 
+# Password utilities
+def verify_password_safe(plain_password: str, hashed_password: str) -> bool:
+    if not hashed_password:
+        logger.warning("Attempted login with missing password hash.")
+        return False
+    try:
+        return pwd_context.verify(plain_password, hashed_password)
+    except UnknownHashError:
+        logger.warning(f"Unknown hash format detected: {hashed_password}")
+        return False
 
-def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
-
-def hash_password(password: str):
+def hash_password(password: str) -> str:
     return pwd_context.hash(password)
+
+# ----------------------------
+# Routes
+# ----------------------------
 
 @router.post("/loginshop")
 def login(data: LoginRequest):
@@ -39,10 +57,11 @@ def login(data: LoginRequest):
         raise HTTPException(status_code=401, detail="Invalid shop ID or username")
 
     user_data = docs[0].to_dict()
-
     hashed_password = user_data.get("password")
-    if not hashed_password or not verify_password(data.password, hashed_password):
-        raise HTTPException(status_code=401, detail="Invalid password")
+
+    # Safe password verification
+    if not verify_password_safe(data.password, hashed_password):
+        raise HTTPException(status_code=401, detail="Invalid password or hash format")
 
     # Create JWT token with user info payload
     token_data = {
@@ -82,33 +101,23 @@ def create_shop(shop: Shop, authorization: str = Header(...)):
 @router.get("/balance/{shop_id}")
 async def get_shop_balance(shop_id: str):
     docs = db.collection("shops").stream()
-    
     for doc in docs:
         data = doc.to_dict()
         if data.get("shop_id") == shop_id:
             balance = data.get("balance", 0)
             return {"balance": balance}
-    
     raise HTTPException(status_code=404, detail="Shop not found")
-
-
-
 
 @router.get("/shop_commissions/{shop_id}")
 async def get_shop_weekly_commissions(shop_id: str):
     commissions_ref = db.collection("shop_commissions").document(shop_id).collection("weekly_commissions")
     docs = commissions_ref.stream()
-
     result = []
     for doc in docs:
         data = doc.to_dict()
         data["week_id"] = doc.id
         result.append(data)
-
-    return {
-        "shop_id": shop_id,
-        "weekly_commissions": result
-    }
+    return {"shop_id": shop_id, "weekly_commissions": result}
 
 @router.post("/shop_commissions/{shop_id}/pay/{week_id}")
 async def mark_commission_paid(shop_id: str, week_id: str):
@@ -123,10 +132,7 @@ async def mark_commission_paid(shop_id: str, week_id: str):
         "paid_at": firestore.SERVER_TIMESTAMP
     })
 
-    return {
-        "status": "success",
-        "message": f"Week {week_id} marked as paid"
-    }
+    return {"status": "success", "message": f"Week {week_id} marked as paid"}
 
 @router.get("/report/{shop_id}")
 def get_shop_games(shop_id: str):
@@ -134,7 +140,6 @@ def get_shop_games(shop_id: str):
         # Fetch games
         games_query = db.collection("game_rounds").where("shop_id", "==", shop_id)
         games_docs = games_query.stream()
-
         games = []
         for doc in games_docs:
             data = doc.to_dict()
@@ -160,7 +165,6 @@ def get_shop_games(shop_id: str):
         "message": "No games found" if not games else "Success"
     }
 
-
 class ShopUpdate(BaseModel):
     username: Optional[str] = None
     password: Optional[str] = None
@@ -169,19 +173,19 @@ class ShopUpdate(BaseModel):
 
 @router.put("/shops/{shop_id}")
 async def update_shop(shop_id: str, shop_data: ShopUpdate):
-    # Query the shops collection with where and get()
     shop_query = db.collection("shops").where("shop_id", "==", shop_id).limit(1).get()
-
     if not shop_query:
         raise HTTPException(status_code=404, detail="Shop not found")
 
     doc = shop_query[0]  # get the first matching doc
     update_fields = shop_data.dict(exclude_unset=True)
 
+    # Hash password if it's being updated
+    if "password" in update_fields and update_fields["password"]:
+        update_fields["password"] = hash_password(update_fields["password"])
+
     db.collection("shops").document(doc.id).update(update_fields)
-
     return {"message": "Shop updated", "updated_fields": update_fields}
-
 
 @router.delete("/shops/{shop_id}")
 async def delete_shop(shop_id: str):
@@ -192,4 +196,3 @@ async def delete_shop(shop_id: str):
     doc = query[0].reference
     doc.delete()
     return {"message": "Shop deleted successfully"}
-
